@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemeinschafts-Wiki</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f8f9fa;color:#202122}
+header{background:#fff;border-bottom:1px solid #a2a9b1;padding:15px 5%;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.logo{font-family:Georgia,serif;font-size:27px;font-weight:bold}.logo small{display:block;font-family:Arial;font-size:12px;font-weight:normal;color:#72777d}
+.search{flex:1;max-width:400px}input,textarea{padding:11px;border:1px solid #a2a9b1;border-radius:3px;font:inherit;width:100%}
+button{padding:10px 15px;border:1px solid #a2a9b1;background:#f8f9fa;border-radius:3px;cursor:pointer}button:hover{background:#eaecf0}
+.primary{background:#36c;color:#fff;border-color:#36c}.primary:hover{background:#2455a5}.danger{color:#b32424}
+.layout{max-width:1450px;margin:auto;display:grid;grid-template-columns:220px minmax(0,1fr);min-height:85vh}
+aside{padding:25px 15px;border-right:1px solid #c8ccd1}aside h3{font-size:14px;border-bottom:1px solid #a2a9b1;padding-bottom:8px;margin-top:25px}
+aside a{display:block;color:#36c;text-decoration:none;padding:8px 4px;cursor:pointer;font-size:14px}aside a:hover{text-decoration:underline}
+main{background:#fff;padding:30px 45px;min-width:0}.top-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-family:Georgia,serif;font-size:30px;font-weight:normal;border-bottom:1px solid #a2a9b1;padding-bottom:12px}
+h2{font-family:Georgia,serif;font-weight:normal;border-bottom:1px solid #a2a9b1;padding-bottom:7px;margin-top:30px}
+p{line-height:1.7}.infobox{float:right;width:270px;border:1px solid #a2a9b1;background:#f8f9fa;padding:12px;margin:0 0 20px 25px;font-size:14px}
+.infobox-title{background:#eaecf0;padding:12px;text-align:center;font-weight:bold;margin:-12px -12px 12px}.info-row{border-bottom:1px solid #ddd;padding:9px 0;overflow-wrap:anywhere}
+.toc{display:inline-block;background:#f8f9fa;border:1px solid #a2a9b1;padding:15px 25px;min-width:230px;margin:15px 0}
+.toc a{display:block;color:#36c;text-decoration:none;margin:10px 0;font-size:14px}.toc a:hover{text-decoration:underline}
+.article-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:15px;margin-top:20px}
+.article-card{padding:17px;border:1px solid #c8ccd1;background:#f8f9fa;cursor:pointer;border-radius:3px}.article-card:hover{background:#eaecf0}
+.article-card strong{color:#36c;font-size:17px}.article-card p{font-size:13px;color:#54595d}.category{color:#72777d;font-size:12px}
+.editor{display:none;padding:20px;background:#f8f9fa;border:1px solid #a2a9b1;margin-bottom:25px}.editor label{display:block;font-weight:bold;margin:15px 0 5px}
+.editor textarea{min-height:130px;resize:vertical}.editor-buttons{display:flex;gap:10px;margin-top:15px;flex-wrap:wrap}
+.admin-status{font-size:12px;color:#72777d}.admin-tools{display:none;gap:8px;margin:15px 0;flex-wrap:wrap}
+.article-content{white-space:pre-wrap;overflow-wrap:anywhere}.whatsapp{display:inline-block;background:#128c4a;color:white;text-decoration:none;padding:12px 18px;border-radius:4px;margin:10px 0}
+footer{text-align:center;padding:25px;border-top:1px solid #c8ccd1;color:#72777d;font-size:13px}
+@media(max-width:750px){.layout{grid-template-columns:1fr}aside{border-right:none;border-bottom:1px solid #ccc}main{padding:20px}.infobox{float:none;width:100%;margin:15px 0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Gemeinschafts-Wiki<small>Öffentliche Informationssammlung</small></div>
+  <div class="search"><input id="search" placeholder="Wiki durchsuchen..." oninput="searchArticles()"></div>
+  <button onclick="adminLogin()">Admin</button>
+</header>
+<div class="layout">
+<aside>
+  <h3>Navigation</h3>
+  <a onclick="home()">Hauptseite</a><a onclick="allArticles()">Alle Artikel</a>
+  <h3>Kategorien</h3><div id="categories"></div>
+  <h3>Gemeinschaft</h3><a onclick="showWhatsapp()">WhatsApp-Gruppe</a>
+  <h3>Verwaltung</h3><div class="admin-status" id="adminStatus">Nicht angemeldet</div>
+  <a onclick="adminLogin()">Admin anmelden</a><a onclick="logout()">Abmelden</a>
+</aside>
+<main>
+  <div class="top-actions"><button onclick="home()">Hauptseite</button><button onclick="allArticles()">Artikelübersicht</button></div>
+  <div class="admin-tools" id="adminTools">
+    <button class="primary" onclick="newArticle()">+ Neuer Artikel</button>
+    <button onclick="changeWhatsapp()">WhatsApp-Link ändern</button>
+    <button onclick="logout()">Admin abmelden</button>
+  </div>
+  <div class="editor" id="editor">
+    <h2 id="editorHeading">Artikel erstellen</h2>
+    <label for="title">Titel</label><input id="title" maxlength="120" placeholder="Name des Artikels">
+    <label for="category">Kategorie</label><input id="category" maxlength="80" placeholder="z. B. Geschichte">
+    <label for="description">Kurzbeschreibung</label><textarea id="description" maxlength="500" placeholder="Kurze Beschreibung..."></textarea>
+    <label for="content">Artikelinhalt</label><textarea id="content" style="min-height:250px" maxlength="20000" placeholder="Hier deine Informationen eintragen..."></textarea>
+    <div class="editor-buttons"><button class="primary" onclick="saveArticle()">Speichern</button><button onclick="closeEditor()">Abbrechen</button></div>
+  </div>
+  <div id="page"><h1>Wiki wird geladen...</h1></div>
+</main>
+</div>
+<footer>Gemeinschafts-Wiki · Öffentliche Informationsseite</footer>
+<script>
+// Supabase: Project Settings → API → Project URL + Publishable/anon key.
+// Niemals den service_role key hier eintragen.
+const SUPABASE_URL = "https://mfpjwbfyhsfyckyxjnan.supabase.co";
+const SUPABASE_KEY = "sb_publishable_1z3RQLMYPYw_k15XXB98KA_sd93hkKS";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let articles = [], currentArticle = null, editingId = null, adminPin = null, whatsappLink = "";
+
+async function loadData() {
+  const page = document.getElementById("page");
+  page.textContent = "Daten werden geladen...";
+  try {
+    const [articleResult, settingsResult] = await Promise.all([
+      db.from("wiki_articles").select("*").order("created_at", {ascending:true}),
+      db.from("wiki_settings").select("whatsapp_url").eq("id",1).maybeSingle()
+    ]);
+    if (articleResult.error) throw articleResult.error;
+    if (settingsResult.error) throw settingsResult.error;
+    articles = articleResult.data || [];
+    whatsappLink = settingsResult.data?.whatsapp_url || "";
+    renderCategories(); home();
+  } catch (error) {
+    console.error(error);
+    page.textContent = "Fehler beim Laden. Bitte Supabase-Konfiguration und Datenbank prüfen.";
+  }
+}
+function home() {
+  currentArticle = null; closeEditor();
+  const page = document.getElementById("page"); page.replaceChildren();
+  const heading = document.createElement("h1"); heading.textContent = "Willkommen im Gemeinschafts-Wiki"; page.appendChild(heading);
+  const intro = document.createElement("p"); intro.textContent = "Diese Seite ist eine öffentliche Informationssammlung. Hier findest du Artikel, Hintergründe und Informationen über unsere Gemeinschaft."; page.appendChild(intro);
+  const waHeading = document.createElement("h2"); waHeading.textContent = "WhatsApp-Gruppe"; page.appendChild(waHeading);
+  if (whatsappLink) {
+    const link = document.createElement("a"); link.href = whatsappLink; link.target = "_blank"; link.rel = "noopener noreferrer"; link.className = "whatsapp"; link.textContent = "WhatsApp-Gruppe öffnen"; page.appendChild(link);
+  } else { const p = document.createElement("p"); p.textContent = "Noch kein Gruppenlink hinterlegt."; page.appendChild(p); }
+  const title = document.createElement("h2"); title.textContent = "Artikel und Informationen"; page.appendChild(title);
+  const list = document.createElement("div"); list.className = "article-list"; list.id = "articleList"; page.appendChild(list);
+  renderArticleList(articles);
+}
+function allArticles() {
+  currentArticle = null; closeEditor();
+  const page = document.getElementById("page"); page.replaceChildren();
+  const h = document.createElement("h1"); h.textContent = "Alle Artikel"; page.appendChild(h);
+  const list = document.createElement("div"); list.className = "article-list"; list.id = "articleList"; page.appendChild(list);
+  renderArticleList(articles);
+}
+function renderArticleList(items) {
+  const list = document.getElementById("articleList"); if (!list) return; list.replaceChildren();
+  items.forEach(article => {
+    const card = document.createElement("div"); card.className = "article-card"; card.onclick = () => showArticle(article.id);
+    const title = document.createElement("strong"); title.textContent = article.title;
+    const category = document.createElement("div"); category.className = "category"; category.textContent = article.category || "Allgemein";
+    const description = document.createElement("p"); description.textContent = article.description || "";
+    card.append(title, category, description); list.appendChild(card);
+  });
+}
+function showArticle(id) {
+  const article = articles.find(a => a.id === id); if (!article) return;
+  currentArticle = article; editingId = id; closeEditor();
+  const page = document.getElementById("page"); page.replaceChildren();
+  const heading = document.createElement("h1"); heading.textContent = article.title; page.appendChild(heading);
+  if (adminPin) {
+    const controls = document.createElement("div"); controls.className = "admin-tools"; controls.style.display = "flex";
+    const edit = document.createElement("button"); edit.textContent = "Artikel bearbeiten"; edit.onclick = editArticle;
+    const del = document.createElement("button"); del.textContent = "Artikel löschen"; del.className = "danger"; del.onclick = deleteArticle;
+    controls.append(edit, del); page.appendChild(controls);
+  }
+  const info = document.createElement("div"); info.className = "infobox";
+  const infoTitle = document.createElement("div"); infoTitle.className = "infobox-title"; infoTitle.textContent = article.title;
+  const category = document.createElement("div"); category.className = "info-row"; category.textContent = "Kategorie: " + (article.category || "Allgemein");
+  info.append(infoTitle, category); page.appendChild(info);
+  const description = document.createElement("p"); description.textContent = article.description || ""; page.appendChild(description);
+  const toc = document.createElement("div"); toc.className = "toc";
+  const tocTitle = document.createElement("b"); tocTitle.textContent = "Inhaltsverzeichnis";
+  const tocLink = document.createElement("a"); tocLink.href = "#articleContent"; tocLink.textContent = "1. Informationen";
+  toc.append(tocTitle, tocLink); page.appendChild(toc);
+  const h2 = document.createElement("h2"); h2.id = "articleContent"; h2.textContent = "Informationen"; page.appendChild(h2);
+  const text = document.createElement("div"); text.className = "article-content"; text.textContent = article.content || ""; page.appendChild(text);
+}
+function renderCategories() {
+  const container = document.getElementById("categories"); container.replaceChildren();
+  [...new Set(articles.map(a => a.category || "Allgemein"))].sort().forEach(cat => {
+    const link = document.createElement("a"); link.textContent = cat;
+    link.onclick = () => {
+      const filtered = articles.filter(a => (a.category || "Allgemein") === cat);
+      currentArticle = null; closeEditor();
+      const page = document.getElementById("page"); page.replaceChildren();
+      const heading = document.createElement("h1"); heading.textContent = cat; page.appendChild(heading);
+      const list = document.createElement("div"); list.className = "article-list"; list.id = "articleList"; page.appendChild(list);
+      renderArticleList(filtered);
+    };
+    container.appendChild(link);
+  });
+}
+function searchArticles() {
+  const query = document.getElementById("search").value.toLowerCase().trim();
+  const results = articles.filter(a => [a.title,a.category,a.description,a.content].some(v => (v || "").toLowerCase().includes(query)));
+  currentArticle = null; closeEditor();
+  const page = document.getElementById("page"); page.replaceChildren();
+  const heading = document.createElement("h1"); heading.textContent = "Suchergebnisse"; page.appendChild(heading);
+  const count = document.createElement("p"); count.textContent = results.length + " Artikel gefunden."; page.appendChild(count);
+  const list = document.createElement("div"); list.className = "article-list"; list.id = "articleList"; page.appendChild(list);
+  renderArticleList(results);
+}
+async function adminLogin() {
+  const pin = prompt("Bitte Admin-PIN eingeben:"); if (!pin) return;
+  try {
+    const result = await fetch("/api/admin", {method:"POST",headers:{"Content-Type":"application/json","X-Admin-Pin":pin},body:JSON.stringify({action:"verify"})});
+    const data = await result.json();
+    if (!result.ok || !data.success) { alert(data.error || "Anmeldung fehlgeschlagen."); return; }
+    adminPin = pin;
+    document.getElementById("adminStatus").textContent = "Als Administrator angemeldet";
+    document.getElementById("adminTools").style.display = "flex";
+    alert("Admin-Modus aktiviert!");
+    if (currentArticle) showArticle(currentArticle.id); else home();
+  } catch (error) { alert("Verbindung zum Admin-Server fehlgeschlagen."); }
+}
+function logout() {
+  adminPin = null; editingId = null;
+  document.getElementById("adminStatus").textContent = "Nicht angemeldet";
+  document.getElementById("adminTools").style.display = "none";
+  closeEditor(); if (currentArticle) showArticle(currentArticle.id); else home();
+}
+async function adminRequest(data) {
+  if (!adminPin) throw new Error("Nicht angemeldet.");
+  const result = await fetch("/api/admin", {method:"POST",headers:{"Content-Type":"application/json","X-Admin-Pin":adminPin},body:JSON.stringify(data)});
+  const response = await result.json();
+  if (!result.ok) { if (result.status === 401) logout(); throw new Error(response.error || "Aktion fehlgeschlagen."); }
+  return response;
+}
+function newArticle() {
+  if (!adminPin) return;
+  editingId = null; document.getElementById("editorHeading").textContent = "Neuen Artikel erstellen";
+  ["title","category","description","content"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("editor").style.display = "block";
+}
+function editArticle() {
+  if (!currentArticle || !adminPin) return;
+  editingId = currentArticle.id; document.getElementById("editorHeading").textContent = "Artikel bearbeiten";
+  document.getElementById("title").value = currentArticle.title;
+  document.getElementById("category").value = currentArticle.category || "";
+  document.getElementById("description").value = currentArticle.description || "";
+  document.getElementById("content").value = currentArticle.content || "";
+  document.getElementById("editor").style.display = "block";
+}
+function closeEditor() { document.getElementById("editor").style.display = "none"; }
+async function saveArticle() {
+  if (!adminPin) return;
+  const title = document.getElementById("title").value.trim();
+  const category = document.getElementById("category").value.trim();
+  const description = document.getElementById("description").value.trim();
+  const content = document.getElementById("content").value;
+  if (!title) { alert("Bitte einen Titel eingeben."); return; }
+  const article = {id:editingId || crypto.randomUUID(),title,category:category || "Allgemein",description,content};
+  try {
+    await adminRequest({action:"saveArticle",article});
+    alert("Artikel erfolgreich gespeichert!");
+    await loadData();
+    if (articles.some(a => a.id === article.id)) showArticle(article.id);
+  } catch (error) { alert(error.message); }
+}
+async function deleteArticle() {
+  if (!currentArticle || !adminPin) return;
+  if (!confirm("Diesen Artikel wirklich löschen?")) return;
+  try {
+    await adminRequest({action:"deleteArticle",id:currentArticle.id});
+    alert("Artikel gelöscht!"); currentArticle = null; await loadData();
+  } catch (error) { alert(error.message); }
+}
+function showWhatsapp() {
+  const page = document.getElementById("page"); page.replaceChildren();
+  const heading = document.createElement("h1"); heading.textContent = "WhatsApp-Gruppe"; page.appendChild(heading);
+  if (!whatsappLink) { const p = document.createElement("p"); p.textContent = "Noch kein WhatsApp-Link hinterlegt."; page.appendChild(p); return; }
+  const link = document.createElement("a"); link.href = whatsappLink; link.target = "_blank"; link.rel = "noopener noreferrer"; link.className = "whatsapp"; link.textContent = "WhatsApp-Gruppe öffnen"; page.appendChild(link);
+}
+async function changeWhatsapp() {
+  if (!adminPin) return;
+  const url = prompt("WhatsApp-Einladungslink eingeben:", whatsappLink); if (url === null) return;
+  const cleanUrl = url.trim();
+  if (cleanUrl && !/^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+$/.test(cleanUrl)) { alert("Ungültiger WhatsApp-Einladungslink."); return; }
+  try { await adminRequest({action:"saveWhatsapp",url:cleanUrl}); whatsappLink = cleanUrl; alert("WhatsApp-Link gespeichert!"); home(); }
+  catch (error) { alert(error.message); }
+}
+loadData();
+</script>
+</body>
+</html>
