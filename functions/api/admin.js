@@ -13,7 +13,11 @@ function reply(data, status = 200) {
 
 export async function onRequestPost({ request, env }) {
   try {
-    if (!env.ADMIN_PIN || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    if (
+      !env.ADMIN_PIN ||
+      !env.SUPABASE_URL ||
+      !env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
       return reply({ error: "Server nicht konfiguriert." }, 500);
     }
 
@@ -33,10 +37,12 @@ export async function onRequestPost({ request, env }) {
       "Content-Type": "application/json"
     };
 
+    // Admin-PIN überprüfen
     if (body.action === "verify") {
       return reply({ success: true });
     }
 
+    // Artikel speichern
     if (body.action === "saveArticle") {
       const a = body.article;
 
@@ -77,17 +83,16 @@ export async function onRequestPost({ request, env }) {
       );
 
       if (!result.ok) {
-        const details = await result.text();
-
         return reply({
           error: "Artikel konnte nicht gespeichert werden.",
-          details: details
+          details: await result.text()
         }, 500);
       }
 
       return reply({ success: true });
     }
 
+    // Artikel löschen
     if (body.action === "deleteArticle") {
       if (
         typeof body.id !== "string" ||
@@ -105,17 +110,16 @@ export async function onRequestPost({ request, env }) {
       );
 
       if (!result.ok) {
-        const details = await result.text();
-
         return reply({
           error: "Löschen fehlgeschlagen.",
-          details: details
+          details: await result.text()
         }, 500);
       }
 
       return reply({ success: true });
     }
 
+    // WhatsApp-Link speichern
     if (body.action === "saveWhatsapp") {
       const url = body.url ?? "";
 
@@ -143,15 +147,68 @@ export async function onRequestPost({ request, env }) {
       );
 
       if (!result.ok) {
-        const details = await result.text();
-
         return reply({
           error: "Link konnte nicht gespeichert werden.",
-          details: details
+          details: await result.text()
         }, 500);
       }
 
       return reply({ success: true });
+    }
+
+    // Besucherstatistik abrufen (nur Admin)
+    if (body.action === "getStats") {
+      const now = new Date();
+
+      // Deutsche Zeitzone berücksichtigen
+      const berlinDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Berlin",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).format(now);
+
+      const [year, month, day] = berlinDate.split("-").map(Number);
+
+      const startMonth = new Date(
+        Date.UTC(year, month - 1, 1) - 60 * 60 * 1000
+      );
+
+      const result = await fetch(
+        `${base}/rest/v1/page_visits?select=visited_at&visited_at=gte.${encodeURIComponent(startMonth.toISOString())}&order=visited_at.asc`,
+        { headers }
+      );
+
+      if (!result.ok) {
+        return reply({
+          error: "Statistik konnte nicht geladen werden.",
+          details: await result.text()
+        }, 500);
+      }
+
+      const visits = await result.json();
+
+      const daily = {};
+
+      visits.forEach(visit => {
+        const date = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Europe/Berlin",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        }).format(new Date(visit.visited_at));
+
+        daily[date] = (daily[date] || 0) + 1;
+      });
+
+      const today = berlinDate;
+
+      return reply({
+        success: true,
+        today: daily[today] || 0,
+        month: visits.length,
+        daily
+      });
     }
 
     return reply({ error: "Unbekannte Aktion." }, 400);
