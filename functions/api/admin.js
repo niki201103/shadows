@@ -141,15 +141,9 @@ ${reason}`
       return reply({ error: "Falscher Admin-PIN." }, 401);
     }
 
-    if (body.action === "verify") {
-      await insertLog(env, "admin_login_logs", {
-        event: "login_success",
-        details: "Admin-Anmeldung erfolgreich"
-      });
-
-      return reply({ success: true });
-    }
-
+   if (body.action === "verify") {
+  return reply({ success: true });
+}
     if (body.action === "saveArticle") {
       const a = body.article;
 
