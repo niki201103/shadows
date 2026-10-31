@@ -1,59 +1,29 @@
-# Gemeinschafts-Wiki
-
-## Dateien
-- `index.html`: öffentliche Wiki-Webseite
-- `functions/api/admin.js`: Cloudflare Pages Function für Admin-Aktionen
-- `supabase-schema.sql`: Datenbanktabellen und Leserechte
-
-## 1. Supabase
-1. Öffne dein Supabase-Projekt → SQL Editor.
-2. Führe den Inhalt von `supabase-schema.sql` aus.
-3. Öffne Project Settings → API.
-4. Kopiere die Project URL und den öffentlichen Publishable-/anon-Key.
-
-Trage URL und öffentlichen Key oben in `index.html` bei `SUPABASE_URL` und `SUPABASE_KEY` ein.
-Dort niemals den `service_role`-Key eintragen.
-
-## 2. GitHub
-Lege die Dateien exakt so ab:
-
-```text
-/
-├── index.html
-├── supabase-schema.sql
-└── functions/
-    └── api/
-        └── admin.js
-```
-
-Committe und pushe die Änderungen.
-
-## 3. Cloudflare Pages
-Das GitHub-Repository muss als Cloudflare Pages-Projekt verbunden sein.
-Für ein einfaches statisches Projekt:
-- Build command: leer lassen
-- Build output directory: `/` (bzw. das Repository-Wurzelverzeichnis, je nach Cloudflare-Einrichtung)
-
-Pages Functions werden automatisch aus dem Ordner `functions/` erkannt.
-
-Unter Settings → Variables and Secrets → Production füge hinzu:
-- `ADMIN_PIN`: dein geheimer Admin-PIN (besser eine lange, nicht erratbare Passphrase)
-- `SUPABASE_URL`: deine Supabase Project URL
-- `SUPABASE_SERVICE_ROLE_KEY`: der geheime service_role-Key aus Supabase
-
-Den `service_role`-Key niemals in GitHub, HTML oder clientseitigem JavaScript veröffentlichen.
-Danach neu deployen.
-
-## 4. Test
-1. Öffne die öffentliche Webseite.
-2. Prüfe, ob die Seite lädt.
-3. Klicke auf Admin und melde dich mit deinem PIN an.
-4. Erstelle einen Testartikel, bearbeite ihn und lösche ihn wieder.
-5. Teste den WhatsApp-Link.
-
-## Sicherheitshinweise
-- Diese einfache PIN-Lösung ist für ein kleines privates Admin-Team gedacht, nicht für sensible oder hochkritische Inhalte.
-- Aktiviere bei Cloudflare Rate Limiting für `/api/admin`, um PIN-Versuche zu begrenzen.
-- Ein PIN wird im Browser für die Dauer der geöffneten Sitzung im JavaScript-Speicher gehalten. Beim Abmelden wird er verworfen.
-- Inhalte sind öffentlich lesbar. Veröffentliche keine privaten Daten oder Informationen über andere Personen ohne deren Einwilligung.
-- Der WhatsApp-Einladungslink ist öffentlich sichtbar, sobald er eingetragen wurde.
+Gemeinschafts-Wiki – Funktionserweiterung
+Das ursprüngliche Seitenlayout und die vorhandenen Gestaltungselemente bleiben erhalten: Kopfzeile mit Suche und Admin-Schaltfläche, linke Navigation, Inhaltsbereich, Artikelkarten, Infoboxen, Editor und Fußzeile. Die vorhandenen CSS-Regeln und Farben wurden nicht neu gestaltet.
+Ergänzte Funktionen
+- Beitrittsformular mit Name, Kontakt und Begründung
+- Speicherung der Beitrittsanfragen und E-Mail-Benachrichtigung über Resend
+- Anfragen im Adminbereich ansehen und annehmen oder ablehnen
+- Protokoll erfolgreicher Admin-Anmeldungen und Admin-Aktivitäten
+- Deutsche und englische Artikeltexte mit Sprachumschalter
+- Impressum- und Datenschutzseiten als auszufüllende Platzhalter
+- Bestehende Besucherzählung, Besucherstatistik und WhatsApp-Verwaltung
+Einrichtung
+1. Im Supabase SQL Editor supabase-schema.sql ausführen. Das Skript ergänzt die Artikeltabelle und legt die benötigten Tabellen an.
+2. In index.html SUPABASE_URL und SUPABASE_KEY prüfen. Im Browser darf nur der Publishable-/anon-Key stehen.
+3. Folgende Dateien in das Cloudflare-Pages-Projekt übernehmen: index.html, supabase-schema.sql und functions/api/admin.js.
+4. Cloudflare Pages mit dem Repository verbinden. Build command leer lassen; Ausgabeordner /.
+5. Unter Cloudflare Pages → Settings → Variables and Secrets → Production setzen:
+   - ADMIN_PIN: lange, zufällige Passphrase
+   - SUPABASE_URL
+   - SUPABASE_SERVICE_ROLE_KEY: geheim halten, niemals im Browser oder Repository veröffentlichen
+   - RESEND_API_KEY: optional, für E-Mail-Benachrichtigungen
+   - ADMIN_NOTIFICATION_EMAIL: optionale Empfängeradresse
+   - EMAIL_FROM: optional, verifizierte Absenderadresse
+6. Neu deployen.
+Hinweise vor Veröffentlichung
+- Impressum und Datenschutzhinweise sind Platzhalter und müssen mit korrekten Angaben ergänzt werden.
+- Beitrittsanfragen enthalten personenbezogene Daten. Lege eine angemessene Löschfrist fest und beschränke den Zugriff auf berechtigte Personen.
+- E-Mail-Hinweise werden nur versendet, wenn RESEND_API_KEY und ADMIN_NOTIFICATION_EMAIL gesetzt sind. Für produktiven Versand muss die Absenderdomain bei Resend verifiziert sein.
+- Aktiviere Cloudflare Rate Limiting für /api/admin. Die PIN-Lösung ist für ein kleines Admin-Team gedacht; langfristig sind individuelle Benutzerkonten mit Rollen und Mehr-Faktor-Authentifizierung vorzuziehen.
+- Die Besucherstatistik speichert Zeitstempel von Aufrufen, aber keine persönlichen Besucherdaten.
