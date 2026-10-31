@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gemeinschafts-Wiki</title>
+<title>Sekten-Wiki</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box}
@@ -73,7 +73,7 @@ main{padding:20px}
 <body>
 
 <header>
-  <div class="logo">Gemeinschafts-Wiki
+  <div class="logo">Sekten-Wiki
     <small>Öffentliche Informationssammlung</small>
   </div>
   <div class="search">
@@ -144,7 +144,7 @@ main{padding:20px}
 </main>
 </div>
 
-<footer>Gemeinschafts-Wiki · Öffentliche Informationsseite</footer>
+<footer>Sekten-Wiki · Öffentliche Informationsseite</footer>
 
 <script>
 // Supabase-Konfiguration
@@ -214,11 +214,11 @@ function home() {
   page.replaceChildren();
 
   const heading = document.createElement("h1");
-  heading.textContent = "Willkommen im Gemeinschafts-Wiki";
+  heading.textContent = "Willkommen im Sekten-Wiki";
   page.appendChild(heading);
 
   const intro = document.createElement("p");
-  intro.textContent = "Diese Seite ist eine öffentliche Informationssammlung. Hier findest du Artikel, Hintergründe und Informationen über unsere Gemeinschaft.";
+  intro.textContent = "Diese Seite ist eine öffentliche Informationssammlung. Hier findest du Artikel, Hintergründe und Informationen über unsere Sekte.";
   page.appendChild(intro);
 
   const waHeading = document.createElement("h2");
