@@ -784,37 +784,232 @@ function toggleLanguage() {
   else if (document.getElementById("articleList")) allArticles();
   else home();
 }
+
 function articleField(article, field) {
   const translated = article[field + "_" + language];
   return translated || article[field + "_de"] || article[field] || "";
 }
+
 function showMembershipForm() {
-  closeEditor(); closeStats(); currentArticle = null;
-  const page = document.getElementById("page"); page.replaceChildren();
-  const h = document.createElement("h1"); h.textContent = language === "de" ? "Mitgliedschaft anfragen" : "Membership request"; page.appendChild(h);
-  const form = document.createElement("form"); form.className = "editor"; form.style.display = "block";
+  closeEditor();
+  closeStats();
+  currentArticle = null;
+
+  const page = document.getElementById("page");
+  page.replaceChildren();
+
+  const h = document.createElement("h1");
+  h.textContent = language === "de" ? "Mitgliedschaft anfragen" : "Membership request";
+  page.appendChild(h);
+
+  const form = document.createElement("form");
+  form.className = "editor";
+  form.style.display = "block";
+
   form.innerHTML = `<label>${language === "de" ? "Name" : "Name"}</label><input name="name" maxlength="100" required><label>${language === "de" ? "Telefon / Kontakt" : "Phone / contact"}</label><input name="phone" type="tel" maxlength="40" required><label>${language === "de" ? "Warum möchtest du beitreten?" : "Why would you like to join?"}</label><textarea name="reason" maxlength="2000" required></textarea><div class="editor-buttons"><button class="primary" type="submit">${language === "de" ? "Anfrage senden" : "Send request"}</button></div><p id="membershipMessage" aria-live="polite"></p>`;
-  form.onsubmit = submitMembershipRequest; page.appendChild(form);
+
+  form.onsubmit = submitMembershipRequest;
+  page.appendChild(form);
 }
+
 async function submitMembershipRequest(event) {
-  event.preventDefault(); const form = event.currentTarget; const data = Object.fromEntries(new FormData(form));
-  const message = document.getElementById("membershipMessage"); message.textContent = "…";
-  try { const response = await fetch("/api/admin", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"submitMembership",...data})}); const result = await response.json(); if(!response.ok) throw new Error(result.error || "Anfrage fehlgeschlagen."); message.textContent = language === "de" ? "Deine Anfrage wurde übermittelt." : "Your request has been submitted."; form.reset(); }
-  catch(error) { message.textContent = error.message; }
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
+  const message = document.getElementById("membershipMessage");
+
+  message.textContent = "…";
+
+  try {
+    const response = await fetch("/api/admin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action: "submitMembership",
+        ...data
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      const details = result.details
+        ? "\nDetails: " + result.details
+        : "";
+
+      throw new Error(
+        (result.error || "Anfrage fehlgeschlagen.") + details
+      );
+    }
+
+    message.textContent = language === "de"
+      ? "Deine Anfrage wurde übermittelt."
+      : "Your request has been submitted.";
+
+    form.reset();
+
+  } catch (error) {
+    message.textContent = error.message;
+  }
 }
+
 async function loadMembershipRequests() {
-  const panel = document.getElementById("statsPanel"), content = document.getElementById("statsContent"); closeEditor(); panel.style.display="block"; content.textContent="Anfragen werden geladen…";
-  try { const data = await adminRequest({action:"getMembershipRequests"}); content.replaceChildren();
-    if(!data.requests.length){content.textContent="Keine Anfragen vorhanden.";return;}
-    const table=document.createElement("table");table.className="stats-table";const head=document.createElement("tr");["Name","Kontakt","Begründung","Status","Aktion"].forEach(v=>{const th=document.createElement("th");th.textContent=v;head.appendChild(th)});table.appendChild(head);
-    data.requests.forEach(r=>{const tr=document.createElement("tr");[r.name,r.phone,r.reason,r.status].forEach(v=>{const td=document.createElement("td");td.textContent=v||"";tr.appendChild(td)});const td=document.createElement("td");if(r.status==="pending"){["accepted","rejected"].forEach(status=>{const b=document.createElement("button");b.textContent=status==="accepted"?"Annehmen":"Ablehnen";b.onclick=()=>decideMembership(r.id,status);td.appendChild(b)})}tr.appendChild(td);table.appendChild(tr)});content.appendChild(table);
-  } catch(e){content.textContent=e.message}
+  const panel = document.getElementById("statsPanel");
+  const content = document.getElementById("statsContent");
+
+  closeEditor();
+  panel.style.display = "block";
+  content.textContent = "Anfragen werden geladen…";
+
+  try {
+    const data = await adminRequest({
+      action: "getMembershipRequests"
+    });
+
+    content.replaceChildren();
+
+    if (!data.requests.length) {
+      content.textContent = "Keine Anfragen vorhanden.";
+      return;
+    }
+
+    const table = document.createElement("table");
+    table.className = "stats-table";
+
+    const head = document.createElement("tr");
+
+    ["Name", "Kontakt", "Begründung", "Status", "Aktion"].forEach(v => {
+      const th = document.createElement("th");
+      th.textContent = v;
+      head.appendChild(th);
+    });
+
+    table.appendChild(head);
+
+    data.requests.forEach(r => {
+      const tr = document.createElement("tr");
+
+      [r.name, r.phone, r.reason, r.status].forEach(v => {
+        const td = document.createElement("td");
+        td.textContent = v || "";
+        tr.appendChild(td);
+      });
+
+      const td = document.createElement("td");
+
+      if (r.status === "pending") {
+        ["accepted", "rejected"].forEach(status => {
+          const b = document.createElement("button");
+          b.textContent = status === "accepted" ? "Annehmen" : "Ablehnen";
+          b.onclick = () => decideMembership(r.id, status);
+          td.appendChild(b);
+        });
+      }
+
+      tr.appendChild(td);
+      table.appendChild(tr);
+    });
+
+    content.appendChild(table);
+
+  } catch (e) {
+    content.textContent = e.message;
+  }
 }
-async function decideMembership(id,status){try{await adminRequest({action:"decideMembership",id,status});await loadMembershipRequests()}catch(e){alert(e.message)}}
-async function renderLogs(action,title){const panel=document.getElementById("statsPanel"),content=document.getElementById("statsContent");closeEditor();panel.style.display="block";content.textContent="Protokoll wird geladen…";try{const data=await adminRequest({action});content.replaceChildren();const h=document.createElement("h3");h.textContent=title;content.appendChild(h);if(!data.logs.length){content.append("Keine Einträge vorhanden.");return}const table=document.createElement("table");table.className="stats-table";data.logs.forEach((r,i)=>{const tr=document.createElement("tr");[r.created_at?new Date(r.created_at).toLocaleString("de-DE"):"",r.event||"",r.details||""].forEach(v=>{const td=document.createElement(i===0?"th":"td");td.textContent=v;tr.appendChild(td)});table.appendChild(tr)});content.appendChild(table)}catch(e){content.textContent=e.message}}
-function loadActivityLogs(){return renderLogs("getActivityLogs","Aktivitätsprotokoll")}
-function loadLoginLogs(){return renderLogs("getLoginLogs","Anmeldeprotokoll")}
-function showLegal(which){closeEditor();closeStats();const page=document.getElementById("page");page.replaceChildren();const h=document.createElement("h1");h.textContent=which==="imprint"?"Impressum":"Datenschutzhinweise";page.appendChild(h);const p=document.createElement("p");p.textContent="Bitte trage hier vor Veröffentlichung die vollständigen und zutreffenden Angaben der verantwortlichen Stelle sowie die erforderlichen Datenschutzinformationen ein.";page.appendChild(p);const p2=document.createElement("p");p2.textContent="[Name / verantwortliche Stelle] · [Anschrift] · [Kontakt-E-Mail]";page.appendChild(p2)}
+
+async function decideMembership(id, status) {
+  try {
+    await adminRequest({
+      action: "decideMembership",
+      id,
+      status
+    });
+
+    await loadMembershipRequests();
+
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function renderLogs(action, title) {
+  const panel = document.getElementById("statsPanel");
+  const content = document.getElementById("statsContent");
+
+  closeEditor();
+  panel.style.display = "block";
+  content.textContent = "Protokoll wird geladen…";
+
+  try {
+    const data = await adminRequest({action});
+
+    content.replaceChildren();
+
+    const h = document.createElement("h3");
+    h.textContent = title;
+    content.appendChild(h);
+
+    if (!data.logs.length) {
+      content.append("Keine Einträge vorhanden.");
+      return;
+    }
+
+    const table = document.createElement("table");
+    table.className = "stats-table";
+
+    data.logs.forEach((r, i) => {
+      const tr = document.createElement("tr");
+
+      [
+        r.created_at ? new Date(r.created_at).toLocaleString("de-DE") : "",
+        r.event || "",
+        r.details || ""
+      ].forEach(v => {
+        const td = document.createElement(i === 0 ? "th" : "td");
+        td.textContent = v;
+        tr.appendChild(td);
+      });
+
+      table.appendChild(tr);
+    });
+
+    content.appendChild(table);
+
+  } catch (e) {
+    content.textContent = e.message;
+  }
+}
+
+function loadActivityLogs() {
+  return renderLogs("getActivityLogs", "Aktivitätsprotokoll");
+}
+
+function loadLoginLogs() {
+  return renderLogs("getLoginLogs", "Anmeldeprotokoll");
+}
+
+function showLegal(which) {
+  closeEditor();
+  closeStats();
+
+  const page = document.getElementById("page");
+  page.replaceChildren();
+
+  const h = document.createElement("h1");
+  h.textContent = which === "imprint" ? "Impressum" : "Datenschutzhinweise";
+  page.appendChild(h);
+
+  const p = document.createElement("p");
+  p.textContent = "Bitte trage hier vor Veröffentlichung die vollständigen und zutreffenden Angaben der verantwortlichen Stelle sowie die erforderlichen Datenschutzinformationen ein.";
+  page.appendChild(p);
+
+  const p2 = document.createElement("p");
+  p2.textContent = "[Name / verantwortliche Stelle] · [Anschrift] · [Kontakt-E-Mail]";
+  page.appendChild(p2);
+}
 
 // Start
 trackVisit();
