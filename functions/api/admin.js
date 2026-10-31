@@ -122,7 +122,7 @@ export async function onRequestPost({ request, env }) {
       if (
         typeof url !== "string" ||
         (url !== "" &&
-          !/^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+$/.test(url))
+          !/^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+(?:\?[A-Za-z0-9_=&%-]+)?$/.test(url))
       ) {
         return reply({ error: "Ungültiger WhatsApp-Link." }, 400);
       }
