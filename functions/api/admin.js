@@ -94,11 +94,16 @@ export async function onRequestPost({ request, env }) {
         })
       });
 
-      if (!r.ok) {
-        return reply({
-          error: "Anfrage konnte nicht gespeichert werden."
-        }, 500);
-      }
+ if (!r.ok) {
+  const details = await r.text();
+  console.error("Supabase membership error:", details);
+
+  return reply({
+    error: "Anfrage konnte nicht gespeichert werden.",
+    details: details
+  }, 500);
+}
+      
 
       if (env.RESEND_API_KEY && env.ADMIN_NOTIFICATION_EMAIL) {
         try {
