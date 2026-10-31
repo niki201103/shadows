@@ -79,7 +79,6 @@ main{padding:20px}
   <div class="search">
     <input id="search" placeholder="Wiki durchsuchen..." oninput="searchArticles()">
   </div>
-  <button onclick="toggleLanguage()" id="languageButton">EN</button>
   <button onclick="adminLogin()">Admin</button>
 </header>
 
@@ -111,23 +110,22 @@ main{padding:20px}
     <button class="primary" onclick="newArticle()">+ Neuer Artikel</button>
     <button onclick="changeWhatsapp()">WhatsApp-Link ändern</button>
     <button onclick="loadStats()">Besucherstatistik</button>
-    <button onclick="loadActivityLogs()">Aktivitätsprotokoll</button>
-    <button onclick="loadLoginLogs()">Anmeldeprotokoll</button>
     <button onclick="logout()">Admin abmelden</button>
   </div>
 
   <div class="editor" id="editor">
     <h2 id="editorHeading">Artikel erstellen</h2>
+    <label for="title">Titel</label>
+    <input id="title" maxlength="120" placeholder="Name des Artikels">
+
     <label for="category">Kategorie</label>
     <input id="category" maxlength="80" placeholder="z. B. Geschichte">
-    <h3>Deutsch</h3>
-    <label for="title_de">Titel (Deutsch)</label><input id="title_de" maxlength="120" placeholder="Name des Artikels">
-    <label for="description_de">Kurzbeschreibung (Deutsch)</label><textarea id="description_de" maxlength="500"></textarea>
-    <label for="content_de">Artikelinhalt (Deutsch)</label><textarea id="content_de" style="min-height:180px" maxlength="20000"></textarea>
-    <h3>English</h3>
-    <label for="title_en">Title (English)</label><input id="title_en" maxlength="120" placeholder="Article title">
-    <label for="description_en">Short description (English)</label><textarea id="description_en" maxlength="500"></textarea>
-    <label for="content_en">Article content (English)</label><textarea id="content_en" style="min-height:180px" maxlength="20000"></textarea>
+
+    <label for="description">Kurzbeschreibung</label>
+    <textarea id="description" maxlength="500" placeholder="Kurze Beschreibung..."></textarea>
+
+    <label for="content">Artikelinhalt</label>
+    <textarea id="content" style="min-height:250px" maxlength="20000" placeholder="Hier deine Informationen eintragen..."></textarea>
 
     <div class="editor-buttons">
       <button class="primary" onclick="saveArticle()">Speichern</button>
@@ -146,7 +144,7 @@ main{padding:20px}
 </main>
 </div>
 
-<footer>Gemeinschafts-Wiki · Öffentliche Informationsseite · <a href="#" onclick="showLegal('imprint');return false">Impressum</a> · <a href="#" onclick="showLegal('privacy');return false">Datenschutz</a></footer>
+<footer>Gemeinschafts-Wiki · Öffentliche Informationsseite</footer>
 
 <script>
 // Supabase-Konfiguration
@@ -160,7 +158,6 @@ let currentArticle = null;
 let editingId = null;
 let adminPin = null;
 let whatsappLink = "";
-let language = "de";
 
 // Besucher zählen
 async function trackVisit() {
@@ -217,11 +214,11 @@ function home() {
   page.replaceChildren();
 
   const heading = document.createElement("h1");
-  heading.textContent = language === "de" ? "Willkommen im Gemeinschafts-Wiki" : "Welcome to the Community Wiki";
+  heading.textContent = "Willkommen im Gemeinschafts-Wiki";
   page.appendChild(heading);
 
   const intro = document.createElement("p");
-  intro.textContent = language === "de" ? "Diese Seite ist eine öffentliche Informationssammlung. Hier findest du Artikel, Hintergründe und Informationen über unsere Gemeinschaft." : "This is a public information collection with articles and background about our community.";
+  intro.textContent = "Diese Seite ist eine öffentliche Informationssammlung. Hier findest du Artikel, Hintergründe und Informationen über unsere Gemeinschaft.";
   page.appendChild(intro);
 
   const waHeading = document.createElement("h2");
@@ -286,14 +283,14 @@ function renderArticleList(items) {
     card.onclick = () => showArticle(article.id);
 
     const title = document.createElement("strong");
-    title.textContent = articleField(article, "title");
+    title.textContent = article.title;
 
     const category = document.createElement("div");
     category.className = "category";
     category.textContent = article.category || "Allgemein";
 
     const description = document.createElement("p");
-    description.textContent = articleField(article, "description");
+    description.textContent = article.description || "";
 
     card.append(title, category, description);
     list.appendChild(card);
@@ -339,7 +336,7 @@ function showArticle(id) {
 
   const infoTitle = document.createElement("div");
   infoTitle.className = "infobox-title";
-  infoTitle.textContent = articleField(article, "title");
+  infoTitle.textContent = article.title;
 
   const category = document.createElement("div");
   category.className = "info-row";
@@ -349,7 +346,7 @@ function showArticle(id) {
   page.appendChild(info);
 
   const description = document.createElement("p");
-  description.textContent = articleField(article, "description");
+  description.textContent = article.description || "";
   page.appendChild(description);
 
   const toc = document.createElement("div");
@@ -372,7 +369,7 @@ function showArticle(id) {
 
   const text = document.createElement("div");
   text.className = "article-content";
-  text.textContent = articleField(article, "content");
+  text.textContent = article.content || "";
   page.appendChild(text);
 }
 
@@ -418,7 +415,7 @@ function searchArticles() {
   const query = document.getElementById("search").value.toLowerCase().trim();
 
   const results = articles.filter(a =>
-    [a.title, a.title_de, a.title_en, a.category, a.description, a.description_de, a.description_en, a.content, a.content_de, a.content_en]
+    [a.title, a.category, a.description, a.content]
       .some(v => (v || "").toLowerCase().includes(query))
   );
 
@@ -533,7 +530,9 @@ function newArticle() {
   document.getElementById("editorHeading").textContent =
     "Neuen Artikel erstellen";
 
-  ["category","title_de","title_en","description_de","description_en","content_de","content_en"].forEach(id => document.getElementById(id).value = "");
+  ["title","category","description","content"].forEach(
+    id => document.getElementById(id).value = ""
+  );
 
   document.getElementById("editor").style.display = "block";
 }
@@ -548,13 +547,10 @@ function editArticle() {
   document.getElementById("editorHeading").textContent =
     "Artikel bearbeiten";
 
+  document.getElementById("title").value = currentArticle.title;
   document.getElementById("category").value = currentArticle.category || "";
-  document.getElementById("title_de").value = currentArticle.title_de || currentArticle.title || "";
-  document.getElementById("title_en").value = currentArticle.title_en || "";
-  document.getElementById("description_de").value = currentArticle.description_de || currentArticle.description || "";
-  document.getElementById("description_en").value = currentArticle.description_en || "";
-  document.getElementById("content_de").value = currentArticle.content_de || currentArticle.content || "";
-  document.getElementById("content_en").value = currentArticle.content_en || "";
+  document.getElementById("description").value = currentArticle.description || "";
+  document.getElementById("content").value = currentArticle.content || "";
 
   document.getElementById("editor").style.display = "block";
 }
@@ -565,9 +561,39 @@ function closeEditor() {
 
 async function saveArticle() {
   if (!adminPin) return;
-  const article = {id:editingId || crypto.randomUUID(),category:document.getElementById("category").value.trim()||"Allgemein",title_de:document.getElementById("title_de").value.trim(),title_en:document.getElementById("title_en").value.trim(),description_de:document.getElementById("description_de").value.trim(),description_en:document.getElementById("description_en").value.trim(),content_de:document.getElementById("content_de").value,content_en:document.getElementById("content_en").value};
-  if (!article.title_de || !article.title_en) { alert("Bitte beide Artikeltitel (Deutsch und Englisch) ausfüllen."); return; }
-  try { await adminRequest({action:"saveArticle",article}); alert("Artikel erfolgreich gespeichert!"); await loadData(); showArticle(article.id); } catch(error) { alert(error.message); }
+
+  const title = document.getElementById("title").value.trim();
+  const category = document.getElementById("category").value.trim();
+  const description = document.getElementById("description").value.trim();
+  const content = document.getElementById("content").value;
+
+  if (!title) {
+    alert("Bitte einen Titel eingeben.");
+    return;
+  }
+
+  const article = {
+    id: editingId || crypto.randomUUID(),
+    title,
+    category: category || "Allgemein",
+    description,
+    content
+  };
+
+  try {
+    await adminRequest({action:"saveArticle",article});
+
+    alert("Artikel erfolgreich gespeichert!");
+
+    await loadData();
+
+    if (articles.some(a => a.id === article.id)) {
+      showArticle(article.id);
+    }
+
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 async function deleteArticle() {
@@ -770,98 +796,6 @@ async function loadStats() {
 
 function closeStats() {
   document.getElementById("statsPanel").style.display = "none";
-}
-
-
-// Gemeinschafts-Funktionen: Protokolle und zweisprachige Artikel.
-function toggleLanguage() {
-  language = language === "de" ? "en" : "de";
-  document.documentElement.lang = language;
-  document.getElementById("languageButton").textContent = language === "de" ? "EN" : "DE";
-  if (currentArticle) showArticle(currentArticle.id);
-  else if (document.getElementById("articleList")) allArticles();
-  else home();
-}
-
-function articleField(article, field) {
-  const translated = article[field + "_" + language];
-  return translated || article[field + "_de"] || article[field] || "";
-}
-
-async function renderLogs(action, title) {
-  const panel = document.getElementById("statsPanel");
-  const content = document.getElementById("statsContent");
-
-  closeEditor();
-  panel.style.display = "block";
-  content.textContent = "Protokoll wird geladen…";
-
-  try {
-    const data = await adminRequest({action});
-
-    content.replaceChildren();
-
-    const h = document.createElement("h3");
-    h.textContent = title;
-    content.appendChild(h);
-
-    if (!data.logs.length) {
-      content.append("Keine Einträge vorhanden.");
-      return;
-    }
-
-    const table = document.createElement("table");
-    table.className = "stats-table";
-
-    data.logs.forEach((r, i) => {
-      const tr = document.createElement("tr");
-
-      [
-        r.created_at ? new Date(r.created_at).toLocaleString("de-DE") : "",
-        r.event || "",
-        r.details || ""
-      ].forEach(v => {
-        const td = document.createElement(i === 0 ? "th" : "td");
-        td.textContent = v;
-        tr.appendChild(td);
-      });
-
-      table.appendChild(tr);
-    });
-
-    content.appendChild(table);
-
-  } catch (e) {
-    content.textContent = e.message;
-  }
-}
-
-function loadActivityLogs() {
-  return renderLogs("getActivityLogs", "Aktivitätsprotokoll");
-}
-
-function loadLoginLogs() {
-  return renderLogs("getLoginLogs", "Anmeldeprotokoll");
-}
-
-function showLegal(which) {
-  closeEditor();
-  closeStats();
-
-  const page = document.getElementById("page");
-  page.replaceChildren();
-
-  const h = document.createElement("h1");
-  h.textContent = which === "imprint" ? "Impressum" : "Datenschutzhinweise";
-  page.appendChild(h);
-
-  const p = document.createElement("p");
-  p.textContent = "Bitte trage hier vor Veröffentlichung die vollständigen und zutreffenden Angaben der verantwortlichen Stelle sowie die erforderlichen Datenschutzinformationen ein.";
-  page.appendChild(p);
-
-  const p2 = document.createElement("p");
-  p2.textContent = "[Name / verantwortliche Stelle] · [Anschrift] · [Kontakt-E-Mail]";
-  page.appendChild(p2);
 }
 
 // Start
