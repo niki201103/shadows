@@ -11,8 +11,92 @@ function reply(data, status = 200) {
   });
 }
 
+// Deutsche Ortszeit in UTC umrechnen
+function berlinMidnightUtc(year, month, day) {
+  const guess = Date.UTC(year, month - 1, day);
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date(guess));
+
+  const values = {};
+  parts.forEach(p => values[p.type] = p.value);
+
+  const represented = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  );
+
+  return new Date(guess - (represented - guess));
+}
+
 export async function onRequestPost({ request, env }) {
   try {
+    if (
+      !env.SUPABASE_URL ||
+      !env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      return reply({ error: "Server nicht konfiguriert." }, 500);
+    }
+
+    const body = await request.json();
+
+    const base = env.SUPABASE_URL.replace(/\/$/, "");
+    const key = env.SUPABASE_SERVICE_ROLE_KEY;
+
+    const headers = {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json"
+    };
+
+    // Öffentliche Besucherzählung
+    // Es werden keine persönlichen Besucherdaten gespeichert.
+    if (body.action === "trackVisit") {
+      const origin = request.headers.get("Origin");
+
+      if (
+        origin &&
+        origin !== new URL(request.url).origin
+      ) {
+        return reply({ error: "Nicht erlaubt." }, 403);
+      }
+
+      const result = await fetch(
+        `${base}/rest/v1/page_visits`,
+        {
+          method: "POST",
+          headers: {
+            ...headers,
+            Prefer: "return=minimal"
+          },
+          body: JSON.stringify({
+            visited_at: new Date().toISOString()
+          })
+        }
+      );
+
+      if (!result.ok) {
+        return reply({
+          error: "Besuch konnte nicht registriert werden."
+        }, 500);
+      }
+
+      return reply({ success: true });
+    }
+
+    // Ab hier sind alle Aktionen PIN-geschützt.
     if (
       !env.ADMIN_PIN ||
       !env.SUPABASE_URL ||
@@ -23,21 +107,14 @@ export async function onRequestPost({ request, env }) {
 
     const suppliedPin = request.headers.get("X-Admin-Pin") || "";
 
-    if (suppliedPin.length > 200 || suppliedPin !== env.ADMIN_PIN) {
+    if (
+      suppliedPin.length > 200 ||
+      suppliedPin !== env.ADMIN_PIN
+    ) {
       return reply({ error: "Falscher Admin-PIN." }, 401);
     }
 
-    const body = await request.json();
-    const base = env.SUPABASE_URL.replace(/\/$/, "");
-    const key = env.SUPABASE_SERVICE_ROLE_KEY;
-
-    const headers = {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json"
-    };
-
-    // Admin-PIN überprüfen
+    // Admin-Anmeldung überprüfen
     if (body.action === "verify") {
       return reply({ success: true });
     }
@@ -156,11 +233,10 @@ export async function onRequestPost({ request, env }) {
       return reply({ success: true });
     }
 
-    // Besucherstatistik abrufen (nur Admin)
+    // Besucherstatistik abrufen
     if (body.action === "getStats") {
       const now = new Date();
 
-      // Deutsche Zeitzone berücksichtigen
       const berlinDate = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Europe/Berlin",
         year: "numeric",
@@ -168,14 +244,14 @@ export async function onRequestPost({ request, env }) {
         day: "2-digit"
       }).format(now);
 
-      const [year, month, day] = berlinDate.split("-").map(Number);
+      const [year, month, day] = berlinDate
+        .split("-")
+        .map(Number);
 
-      const startMonth = new Date(
-        Date.UTC(year, month - 1, 1) - 60 * 60 * 1000
-      );
+      const startMonth = berlinMidnightUtc(year, month, 1);
 
       const result = await fetch(
-        `${base}/rest/v1/page_visits?select=visited_at&visited_at=gte.${encodeURIComponent(startMonth.toISOString())}&order=visited_at.asc`,
+        `${base}/rest/v1/page_visits?select=visited_at&visited_at=gte.${encodeURIComponent(startMonth.toISOString())}&order=visited_at.asc&limit=1000`,
         { headers }
       );
 
@@ -186,7 +262,31 @@ export async function onRequestPost({ request, env }) {
         }, 500);
       }
 
-      const visits = await result.json();
+      let visits = await result.json();
+
+      // Weitere Seiten laden, falls mehr als 1000 Aufrufe vorliegen.
+      let offset = 1000;
+
+      while (visits.length === offset) {
+        const next = await fetch(
+          `${base}/rest/v1/page_visits?select=visited_at&visited_at=gte.${encodeURIComponent(startMonth.toISOString())}&order=visited_at.asc&limit=1000&offset=${offset}`,
+          { headers }
+        );
+
+        if (!next.ok) {
+          return reply({
+            error: "Weitere Statistikdaten konnten nicht geladen werden."
+          }, 500);
+        }
+
+        const batch = await next.json();
+
+        visits.push(...batch);
+
+        if (batch.length < 1000) break;
+
+        offset += 1000;
+      }
 
       const daily = {};
 
@@ -201,11 +301,9 @@ export async function onRequestPost({ request, env }) {
         daily[date] = (daily[date] || 0) + 1;
       });
 
-      const today = berlinDate;
-
       return reply({
         success: true,
-        today: daily[today] || 0,
+        today: daily[berlinDate] || 0,
         month: visits.length,
         daily
       });
